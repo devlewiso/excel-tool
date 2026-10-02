@@ -1,228 +1,592 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel File Visualizer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #ecf0f1;
-            color: #34495e;
-            text-align: center;
-            margin: 20px;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SheetLens — Visualizador de Excel en el navegador · Free template</title>
+  <meta name="description" content="Arrastra un archivo de Excel o CSV y explóralo al instante: tabla con búsqueda y orden, gráficos y exportación. Todo ocurre en tu navegador.">
+  <meta name="theme-color" content="#060b0b">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2310b981'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M18 44V28M28 44V20M38 44V32M48 44V24' stroke='%23fff' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --emerald: #10b981; --cyan: #06b6d4; --violet: #8b5cf6; --lime: #a3e635;
+      --grad: linear-gradient(100deg, #34d399 0%, #10b981 30%, #06b6d4 65%, #8b5cf6 100%);
+      --grad-btn: linear-gradient(100deg, #10b981, #06b6d4);
+      --radius: 22px; --ease: cubic-bezier(.22, 1, .36, 1);
+      --display: 'Sora', system-ui, sans-serif; --body: 'Inter', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    [data-theme="dark"] {
+      --bg: #060b0b; --bg-2: #0b1414; --surface: rgba(255, 255, 255, .05); --surface-2: rgba(255, 255, 255, .085);
+      --line: rgba(255, 255, 255, .09); --line-2: rgba(255, 255, 255, .17);
+      --text: #effbf8; --muted: #9fb5b1; --shadow: 0 40px 80px -40px rgba(0, 0, 0, .9);
+      --aurora: .5; --row: rgba(255, 255, 255, .025); --hl: rgba(16, 185, 129, .3);
+    }
+    [data-theme="light"] {
+      --bg: #f6fbfa; --bg-2: #eef7f5; --surface: rgba(255, 255, 255, .8); --surface-2: #ffffff;
+      --line: rgba(6, 40, 40, .1); --line-2: rgba(6, 40, 40, .2);
+      --text: #0b2421; --muted: #557370; --shadow: 0 40px 80px -48px rgba(6, 80, 70, .4);
+      --aurora: .26; --row: rgba(6, 40, 40, .025); --hl: rgba(16, 185, 129, .25);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--body); overflow-x: hidden; transition: background-color .4s var(--ease), color .4s var(--ease); }
+    h1, h2, h3, h4 { font-family: var(--display); letter-spacing: -.035em; }
+    ::selection { background: rgba(16, 185, 129, .35); }
+    :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
+    /* ---------- Fondo ---------- */
+    .bg-fx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: var(--aurora); will-change: transform; }
+    .b1 { width: 50vw; height: 50vw; left: -14vw; top: -20vw; background: radial-gradient(circle, #10b981, transparent 65%); animation: d1 24s var(--ease) infinite alternate; }
+    .b2 { width: 44vw; height: 44vw; right: -12vw; top: 4vh; background: radial-gradient(circle, #06b6d4, transparent 65%); animation: d2 28s var(--ease) infinite alternate; }
+    .b3 { width: 40vw; height: 40vw; left: 30vw; bottom: -24vw; background: radial-gradient(circle, #8b5cf6, transparent 65%); animation: d3 32s var(--ease) infinite alternate; }
+    .cells { position: absolute; inset: 0; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 120px 34px; mask-image: radial-gradient(ellipse 70% 50% at 50% 25%, #000 25%, transparent 75%); opacity: .55; }
+    .grain { position: absolute; inset: -50%; opacity: .045; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    @keyframes d1 { to { transform: translate(12vw, 10vh) scale(1.15); } }
+    @keyframes d2 { to { transform: translate(-14vw, 16vh) scale(.9); } }
+    @keyframes d3 { to { transform: translate(-12vw, -16vh) scale(1.2); } }
 
-        .card {
-            background-color: white;
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
+    /* ---------- Navbar ---------- */
+    .nav-glass { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); background: color-mix(in srgb, var(--bg) 72%, transparent); border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: .6rem; font-family: var(--display); font-weight: 800; font-size: 1.25rem; text-decoration: none; color: var(--text); }
+    .brand:hover { color: var(--text); }
+    .brand-mark { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: var(--grad-btn); box-shadow: 0 10px 30px -10px rgba(16, 185, 129, .9); color: #fff; }
+    .brand-x { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .nav-link-x { color: var(--muted); text-decoration: none; font-weight: 500; font-size: .95rem; transition: color .2s; }
+    .nav-link-x:hover { color: var(--text); }
+    .icon-btn { width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); display: grid; place-items: center; transition: transform .3s var(--ease), border-color .2s; }
+    .icon-btn:hover { transform: rotate(-12deg) scale(1.05); border-color: var(--line-2); }
+    .pill { display: inline-flex; align-items: center; gap: .45rem; padding: .45rem .85rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: .82rem; color: var(--muted); }
+    .pill i { color: var(--emerald); }
 
-        .file-input-label, #clearSearch, #clearData {
-            background-color: #3498db;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            display: inline-block;
-            transition: background-color 0.3s, transform 0.1s;
-            border: none;
-            font-size: 0.9rem;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
+    /* ---------- Hero ---------- */
+    .hero { padding: clamp(3.2rem, 8vw, 6rem) 0 2.5rem; text-align: center; }
+    .eyebrow { display: inline-flex; align-items: center; gap: .55rem; padding: .4rem .9rem .4rem .45rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: .85rem; color: var(--muted); backdrop-filter: blur(8px); }
+    .eyebrow .tag { white-space: nowrap; padding: .15rem .55rem; border-radius: 999px; background: var(--grad-btn); color: #fff; font-weight: 700; font-size: .72rem; letter-spacing: .04em; }
+    .hero h1 { font-size: clamp(2.5rem, 7vw, 5.2rem); font-weight: 800; line-height: 1; margin: 1.4rem auto 1.1rem; max-width: 14ch; }
+    .grad-text { background: var(--grad); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 7s linear infinite; }
+    @keyframes shine { to { background-position: 200% center; } }
+    .hero .lead { color: var(--muted); font-size: clamp(1.05rem, 2vw, 1.22rem); max-width: 40rem; margin: 0 auto 2.4rem; }
 
-        .file-input-label:hover, #clearSearch:hover, #clearData:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-        }
+    /* ---------- Dropzone ---------- */
+    .drop-wrap { position: relative; max-width: 860px; margin: 0 auto; padding: 1px; border-radius: calc(var(--radius) + 6px); background: linear-gradient(130deg, rgba(16, 185, 129, .7), rgba(6, 182, 212, .35) 45%, var(--line) 65%, rgba(139, 92, 246, .55)); box-shadow: var(--shadow); }
+    .drop-wrap::before { content: ""; position: absolute; inset: -30px; z-index: -1; border-radius: inherit; background: var(--grad); filter: blur(60px); opacity: .18; animation: pulse 5s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: .32; transform: scale(1.02); } }
+    .drop { position: relative; border-radius: calc(var(--radius) + 5px); background: color-mix(in srgb, var(--bg-2) 88%, transparent); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); padding: clamp(2rem, 5vw, 3.2rem) 1.5rem; text-align: center; cursor: pointer; transition: background .3s; }
+    .drop::after { content: ""; position: absolute; inset: 14px; border-radius: var(--radius); border: 2px dashed var(--line-2); pointer-events: none; transition: border-color .3s, inset .4s var(--ease); }
+    .drop.over::after { border-color: var(--emerald); inset: 8px; }
+    .drop.over { background: color-mix(in srgb, var(--emerald) 10%, var(--bg-2)); }
+    .drop-icon { width: 76px; height: 76px; margin: 0 auto 1.2rem; border-radius: 22px; display: grid; place-items: center; font-size: 2rem; color: #fff; background: var(--grad-btn); box-shadow: 0 20px 40px -16px rgba(16, 185, 129, .9); animation: bob 3.2s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateY(-8px); } }
+    .drop h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); margin: 0 0 .4rem; }
+    .drop p { color: var(--muted); margin: 0 0 1.4rem; }
+    .btn-grad { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: .5rem; border: 0; border-radius: 14px; padding: .85rem 1.4rem; color: #fff; font-weight: 700; font-family: var(--display); background: var(--grad-btn); box-shadow: 0 16px 36px -14px rgba(16, 185, 129, .95); transition: transform .35s var(--ease), box-shadow .35s var(--ease); }
+    .btn-grad::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .45) 50%, transparent 70%); transform: translateX(-120%); transition: transform .8s var(--ease); }
+    .btn-grad:hover { transform: translateY(-2px); color: #fff; }
+    .btn-grad:hover::after { transform: translateX(120%); }
+    .btn-soft { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 12px; padding: .7rem 1.1rem; font-weight: 600; font-size: .92rem; transition: border-color .2s, background .2s, transform .3s var(--ease); }
+    .btn-soft:hover { border-color: var(--line-2); transform: translateY(-1px); }
+    .btn-soft.sm { padding: .45rem .8rem; font-size: .84rem; border-radius: 10px; }
+    .formats { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; }
+    .formats span { font-family: var(--mono); font-size: .78rem; padding: .25rem .6rem; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); }
+    .msg { max-width: 860px; margin: 1rem auto 0; display: flex; gap: .7rem; align-items: flex-start; padding: .9rem 1.1rem; border-radius: 14px; border: 1px solid rgba(248, 113, 113, .45); background: rgba(248, 113, 113, .1); text-align: left; animation: rise .5s var(--ease) both; }
+    .msg i { color: #f87171; font-size: 1.15rem; }
 
-        .file-input-label:active, #clearSearch:active, #clearData:active {
-            transform: translateY(0);
-        }
+    /* ---------- Workspace ---------- */
+    #workspace { display: none; padding-bottom: 4rem; }
+    #workspace.on { display: block; animation: rise .7s var(--ease) both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+    .panel { border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .file-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.2rem; }
+    .file-ic { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; background: var(--grad-btn); color: #fff; font-size: 1.3rem; flex: none; }
+    .file-name { font-family: var(--display); font-weight: 700; font-size: 1.05rem; word-break: break-all; }
+    .file-meta { color: var(--muted); font-size: .85rem; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
+    .stat { padding: 1.1rem 1.2rem; position: relative; overflow: hidden; }
+    .stat::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--grad); opacity: .8; }
+    .stat small { display: block; color: var(--muted); font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+    .stat b { display: block; font-family: var(--display); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800; letter-spacing: -.03em; margin-top: .2rem; font-variant-numeric: tabular-nums; }
+    .stat i { position: absolute; right: 1rem; top: 1rem; font-size: 1.3rem; color: var(--emerald); opacity: .7; }
 
-        .search-container {
-            display: none;
-            margin-top: 1rem;
-        }
+    .sheet-tabs { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .2rem; margin-bottom: 1rem; scrollbar-width: thin; }
+    .sheet-tabs button { flex: none; display: inline-flex; align-items: center; gap: .45rem; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 12px; padding: .55rem .95rem; font-weight: 600; font-size: .88rem; transition: all .25s; }
+    .sheet-tabs button.active { background: var(--grad-btn); color: #fff; border-color: transparent; box-shadow: 0 10px 24px -12px rgba(16, 185, 129, .9); }
 
-        #searchInput {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-        }
+    .chart-panel { padding: 1.2rem; margin-bottom: 1rem; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .panel-head h3 { font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: .55rem; }
+    .panel-head h3 i { color: var(--emerald); }
+    .controls { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    .ctl { display: flex; align-items: center; gap: .4rem; font-size: .82rem; color: var(--muted); }
+    .ctl select { appearance: none; background: var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%2310b981' d='M8 11L3 6h10z'/%3E%3C/svg%3E") no-repeat right .65rem center; border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: .45rem 2rem .45rem .75rem; font-size: .86rem; max-width: 170px; }
+    .ctl select option { background: var(--bg-2); color: var(--text); }
+    .seg { display: inline-flex; padding: .25rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+    .seg button { border: 0; background: transparent; color: var(--muted); width: 36px; height: 32px; border-radius: 9px; transition: all .25s; }
+    .seg button.active { background: var(--grad-btn); color: #fff; }
+    .chart-box { position: relative; height: 340px; }
+    .chart-empty { position: absolute; inset: 0; display: none; place-items: center; text-align: center; color: var(--muted); }
+    .chart-empty.on { display: grid; }
 
-        #output {
-            margin-top: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-        }
+    .table-panel { overflow: hidden; }
+    .table-panel .panel-head { padding: 1.2rem 1.2rem 0; }
+    .search { position: relative; flex: 1; min-width: 220px; max-width: 360px; }
+    .search i { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--muted); }
+    .search input { width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; color: var(--text); padding: .6rem .9rem .6rem 2.4rem; font-size: .92rem; outline: none; transition: border-color .2s, box-shadow .2s; }
+    .search input:focus { border-color: var(--emerald); box-shadow: 0 0 0 4px rgba(16, 185, 129, .15); }
+    .search input::placeholder { color: var(--muted); }
+    .tbl-wrap { max-height: 520px; overflow: auto; border-top: 1px solid var(--line); }
+    table.grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .88rem; }
+    .grid th, .grid td { padding: .65rem .9rem; border-bottom: 1px solid var(--line); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+    .grid thead th { position: sticky; top: 0; z-index: 2; background: color-mix(in srgb, var(--bg-2) 94%, transparent); backdrop-filter: blur(10px); text-align: left; font-family: var(--display); font-weight: 600; font-size: .8rem; letter-spacing: .02em; cursor: pointer; user-select: none; }
+    .grid thead th:hover { color: var(--emerald); }
+    .grid thead th .so { opacity: .35; margin-left: .3rem; font-size: .75rem; }
+    .grid thead th.sorted .so { opacity: 1; color: var(--emerald); }
+    .grid th.rn, .grid td.rn { position: sticky; left: 0; z-index: 1; width: 1%; text-align: right; color: var(--muted); font-family: var(--mono); font-size: .76rem; background: color-mix(in srgb, var(--bg-2) 94%, transparent); }
+    .grid thead th.rn { z-index: 3; cursor: default; }
+    .grid tbody tr:nth-child(even) td { background-color: var(--row); }
+    .grid tbody tr:hover td { background-color: color-mix(in srgb, var(--emerald) 8%, transparent); }
+    .grid td.num { text-align: right; font-family: var(--mono); font-size: .84rem; font-variant-numeric: tabular-nums; }
+    .grid th.num { text-align: right; }
+    .grid mark { background: var(--hl); color: inherit; padding: 0 .1em; border-radius: 3px; }
+    .grid td.empty { color: var(--muted); opacity: .5; }
+    .tbl-foot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .8rem 1.2rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
+    .pager { display: flex; align-items: center; gap: .4rem; }
+    .pager button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); }
+    .pager button:disabled { opacity: .35; }
+    .no-results { padding: 3rem 1rem; text-align: center; color: var(--muted); }
 
-        .table-container {
-            max-height: 300px;
-            overflow: auto;
-        }
+    /* ---------- Secciones ---------- */
+    section.block { padding: clamp(4rem, 9vw, 6.5rem) 0; }
+    .sec-kicker { font-size: .78rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--emerald); }
+    .sec-title { font-size: clamp(2rem, 4.4vw, 3rem); font-weight: 800; line-height: 1.05; margin: .7rem 0 1rem; }
+    .feat { height: 100%; padding: 1.6rem; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); transition: transform .45s var(--ease), box-shadow .45s var(--ease), border-color .3s; }
+    .feat:hover { transform: translateY(-5px); box-shadow: var(--shadow); border-color: var(--line-2); }
+    .feat .ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 1.3rem; color: #fff; background: var(--grad-btn); box-shadow: 0 12px 30px -12px rgba(16, 185, 129, .9); }
+    .feat h3 { font-size: 1.12rem; margin: 1.1rem 0 .4rem; }
+    .feat p { color: var(--muted); margin: 0; font-size: .95rem; }
+    .feat.wide { background: linear-gradient(135deg, rgba(16, 185, 129, .16), rgba(6, 182, 212, .1) 50%, rgba(139, 92, 246, .14)), var(--surface); }
+    .tpl-band { position: relative; overflow: hidden; border-radius: 32px; padding: clamp(2.5rem, 6vw, 4.2rem); text-align: center; background: var(--grad); color: #fff; }
+    .tpl-band::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 15% 0%, rgba(255, 255, 255, .35), transparent 50%); }
+    .tpl-band > * { position: relative; z-index: 1; }
+    .tpl-band h2 { font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800; }
+    .btn-white { display: inline-flex; align-items: center; gap: .5rem; border-radius: 14px; padding: .95rem 1.5rem; background: #fff; color: #0b2421; font-weight: 700; font-family: var(--display); text-decoration: none; transition: transform .3s var(--ease); }
+    .btn-white:hover { transform: translateY(-2px); color: #0b2421; }
+    .btn-outline-white { display: inline-flex; align-items: center; gap: .5rem; border-radius: 14px; padding: .95rem 1.5rem; border: 1px solid rgba(255, 255, 255, .6); color: #fff; font-weight: 600; text-decoration: none; transition: background .3s; }
+    .btn-outline-white:hover { background: rgba(255, 255, 255, .15); color: #fff; }
 
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
+    footer { border-top: 1px solid var(--line); padding: 2.5rem 0; color: var(--muted); font-size: .88rem; }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .free-tag { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; }
 
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-            white-space: nowrap;
-        }
+    .reveal { opacity: 0; transform: translateY(26px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
+    .reveal.in { opacity: 1; transform: none; }
+    .toast-x { position: fixed; left: 50%; bottom: 1.5rem; z-index: 1100; transform: translate(-50%, calc(100% + 2rem)); opacity: 0; visibility: hidden; padding: .8rem 1.2rem; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--line-2); color: var(--text); box-shadow: var(--shadow); font-size: .92rem; transition: transform .5s var(--ease), opacity .3s, visibility .5s; }
+    .toast-x.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
 
-        th {
-            background-color: #2c3e50;
-            color: white;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-
-        tr:hover {
-            background-color: #e9ecef;
-        }
-
-        #chartContainer {
-            width: 100%;
-            height: 300px;
-        }
-    </style>
+    @media (max-width: 991.98px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 575.98px) { .chart-box { height: 260px; } .search { max-width: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
 </head>
 <body>
-    <h1>Excel File Visualizer</h1>
-    <div class="card">
-        <div id="chartContainer">
-            <canvas id="myChart"></canvas>
-        </div>
+  <div class="bg-fx" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="cells"></div><div class="grain"></div></div>
+
+  <nav class="nav-glass">
+    <div class="container d-flex align-items-center justify-content-between gap-3" style="min-height:72px">
+      <a class="brand" href="#top" aria-label="SheetLens, inicio"><span class="brand-mark"><i class="bi bi-bar-chart-fill"></i></span>Sheet<span class="brand-x">Lens</span></a>
+      <div class="d-none d-md-flex gap-4">
+        <a class="nav-link-x" href="#features">Características</a>
+        <a class="nav-link-x" href="#template">Plantilla</a>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="pill d-none d-sm-inline-flex"><i class="bi bi-shield-lock-fill"></i>100% local</span>
+        <button class="icon-btn" id="themeToggle" type="button" aria-label="Cambiar a tema claro"><i class="bi bi-sun"></i></button>
+      </div>
     </div>
-    <div class="card">
-        <div>
-            <label for="fileInput" class="file-input-label">Choose an Excel file</label>
-            <button id="clearData">Clear Data</button>
+  </nav>
+
+  <main id="top">
+    <header class="hero">
+      <div class="container">
+        <span class="eyebrow"><span class="tag">FREE TEMPLATE</span> Plantilla gratis<span class="d-none d-sm-inline">· Excel y CSV en el navegador</span></span>
+        <h1>Tus hojas de cálculo, <span class="grad-text">al instante.</span></h1>
+        <p class="lead">Arrastra un archivo de Excel o CSV y explóralo con tablas, búsqueda y gráficos. Nada se sube a ningún servidor.</p>
+
+        <div class="drop-wrap">
+          <div class="drop" id="drop" role="button" tabindex="0" aria-label="Elegir o soltar un archivo de Excel">
+            <div class="drop-icon"><i class="bi bi-file-earmark-spreadsheet"></i></div>
+            <h2>Suelta tu archivo aquí</h2>
+            <p>o elígelo desde tu equipo</p>
+            <div class="d-flex gap-2 justify-content-center flex-wrap">
+              <button class="btn-grad" type="button" id="pickBtn"><i class="bi bi-folder2-open"></i> Elegir archivo</button>
+              <button class="btn-soft" type="button" id="sampleBtn"><i class="bi bi-magic"></i> Probar con un ejemplo</button>
+            </div>
+            <div class="formats"><span>.xlsx</span><span>.xls</span><span>.csv</span><span>.ods</span></div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.ods" hidden>
+          </div>
         </div>
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search in data...">
-            <button id="clearSearch">Clear Search</button>
+        <div id="msg" aria-live="polite"></div>
+      </div>
+    </header>
+
+    <section id="workspace" aria-label="Datos del archivo">
+      <div class="container">
+        <div class="panel file-bar">
+          <div class="file-ic"><i class="bi bi-file-earmark-spreadsheet-fill"></i></div>
+          <div class="me-auto" style="min-width:0"><div class="file-name" id="fileName">archivo.xlsx</div><div class="file-meta" id="fileMeta"></div></div>
+          <button class="btn-soft sm" type="button" id="exportBtn"><i class="bi bi-download"></i> Exportar CSV</button>
+          <button class="btn-soft sm" type="button" id="newBtn"><i class="bi bi-arrow-repeat"></i> Otro archivo</button>
+          <button class="btn-soft sm" type="button" id="clearBtn"><i class="bi bi-x-lg"></i> Limpiar</button>
         </div>
-        <input type="file" id="fileInput" accept=".xlsx, .xls">
-        <div id="output"></div>
+
+        <div class="stats">
+          <div class="panel stat"><i class="bi bi-list-ol"></i><small>Filas</small><b id="stRows">0</b></div>
+          <div class="panel stat"><i class="bi bi-layout-three-columns"></i><small>Columnas</small><b id="stCols">0</b></div>
+          <div class="panel stat"><i class="bi bi-123"></i><small>Numéricas</small><b id="stNum">0</b></div>
+          <div class="panel stat"><i class="bi bi-calculator"></i><small id="stSumLabel">Suma</small><b id="stSum">—</b></div>
+        </div>
+
+        <div class="sheet-tabs" id="sheetTabs" role="tablist" aria-label="Hojas"></div>
+
+        <div class="panel chart-panel">
+          <div class="panel-head">
+            <h3><i class="bi bi-graph-up-arrow"></i> Gráfico</h3>
+            <div class="controls">
+              <label class="ctl">Etiquetas <select id="xCol"></select></label>
+              <label class="ctl">Valores <select id="yCol"></select></label>
+              <div class="seg" role="group" aria-label="Tipo de gráfico">
+                <button type="button" data-type="bar" class="active" aria-label="Barras" title="Barras"><i class="bi bi-bar-chart-fill"></i></button>
+                <button type="button" data-type="line" aria-label="Líneas" title="Líneas"><i class="bi bi-graph-up"></i></button>
+                <button type="button" data-type="doughnut" aria-label="Dona" title="Dona"><i class="bi bi-pie-chart-fill"></i></button>
+              </div>
+            </div>
+          </div>
+          <div class="chart-box"><canvas id="chart" aria-label="Gráfico de los datos" role="img"></canvas><div class="chart-empty" id="chartEmpty"><div><i class="bi bi-bar-chart fs-2 d-block mb-2"></i>Esta hoja no tiene columnas numéricas para graficar.</div></div></div>
+        </div>
+
+        <div class="panel table-panel">
+          <div class="panel-head">
+            <h3><i class="bi bi-table"></i> Datos</h3>
+            <div class="search"><i class="bi bi-search"></i><input type="search" id="search" placeholder="Buscar en todas las columnas…" aria-label="Buscar en los datos"></div>
+          </div>
+          <div class="tbl-wrap mt-3"><table class="grid" id="grid"></table></div>
+          <div class="tbl-foot"><span id="tblInfo"></span><div class="pager"><button type="button" id="prev" aria-label="Página anterior"><i class="bi bi-chevron-left"></i></button><span id="pageInfo"></span><button type="button" id="next" aria-label="Página siguiente"><i class="bi bi-chevron-right"></i></button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="features">
+      <div class="container">
+        <div class="text-center mb-5 reveal"><span class="sec-kicker">Características</span><h2 class="sec-title">Como Excel, pero sin abrir Excel.</h2></div>
+        <div class="row g-4">
+          <div class="col-md-6 col-lg-4 reveal"><div class="feat"><div class="ic"><i class="bi bi-lightning-charge"></i></div><h3>Instantáneo</h3><p>Lee archivos con miles de filas en segundos, con paginación para que todo siga fluido.</p></div></div>
+          <div class="col-md-6 col-lg-4 reveal" style="transition-delay:.08s"><div class="feat"><div class="ic"><i class="bi bi-layers"></i></div><h3>Todas las hojas</h3><p>Cambia entre las hojas del libro con un clic, cada una con sus propias métricas.</p></div></div>
+          <div class="col-md-6 col-lg-4 reveal" style="transition-delay:.16s"><div class="feat"><div class="ic"><i class="bi bi-bar-chart-line"></i></div><h3>Gráficos al vuelo</h3><p>Elige la columna de etiquetas y la de valores, y cambia entre barras, líneas o dona.</p></div></div>
+          <div class="col-md-6 col-lg-4 reveal"><div class="feat"><div class="ic"><i class="bi bi-search"></i></div><h3>Busca y ordena</h3><p>Filtra en todas las columnas con coincidencias resaltadas y ordena con un clic en el encabezado.</p></div></div>
+          <div class="col-md-12 col-lg-8 reveal" style="transition-delay:.08s"><div class="feat wide"><div class="ic"><i class="bi bi-shield-lock"></i></div><h3>Tus datos no salen de tu equipo</h3><p>El archivo se procesa por completo en tu navegador con SheetJS. No hay subida, no hay servidor y no se guarda nada: al cerrar la pestaña, desaparece.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block pt-0" id="template">
+      <div class="container reveal">
+        <div class="tpl-band">
+          <span class="d-inline-block mb-3 px-3 py-1 rounded-pill" style="background:rgba(255,255,255,.2);font-weight:700;font-size:.78rem;letter-spacing:.08em">100% FREE · OPEN SOURCE</span>
+          <h2>¿Te gusta? Es tuya.</h2>
+          <p class="mb-4 opacity-75 mx-auto" style="font-size:1.1rem;max-width:36rem">SheetLens es una plantilla gratuita: un solo archivo HTML con Bootstrap 5, SheetJS y Chart.js. Úsala, modifícala y publícala.</p>
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a class="btn-white" href="https://github.com/devlewiso/excel-tool" target="_blank" rel="noopener noreferrer"><i class="bi bi-github"></i> Ver código en GitHub</a>
+            <a class="btn-outline-white" href="https://neuralcodelab.com/proyectos" target="_blank" rel="noopener">Más plantillas gratis ↗</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container d-flex flex-column flex-md-row justify-content-between gap-3">
+      <span>© <span id="year"></span> SheetLens · <b class="free-tag">Free template</b> por <a href="https://neuralcodelab.com" target="_blank" rel="noopener">Neural Code Lab</a> · <a href="LICENSE">Licencia MIT</a></span>
+      <span>Hecho con <a href="https://sheetjs.com" target="_blank" rel="noopener noreferrer">SheetJS</a> y <a href="https://www.chartjs.org" target="_blank" rel="noopener noreferrer">Chart.js</a>. Excel es marca de Microsoft.</span>
     </div>
+  </footer>
 
-    <script>
-        let globalData = [];
+  <div class="toast-x" id="toast" role="status"></div>
 
-        document.getElementById('fileInput').addEventListener('change', handleFile, false);
-        document.getElementById('searchInput').addEventListener('input', handleSearch);
-        document.getElementById('clearSearch').addEventListener('click', clearSearch);
-        document.getElementById('clearData').addEventListener('click', clearData);
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script>
+  (() => {
+    const PAGE = 100;
+    const $ = (s) => document.querySelector(s);
+    const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+    const st = { wb: null, name: '', size: 0, sheet: '', cols: [], rows: [], numCols: [], view: [], q: '', sortCol: null, sortDir: 1, page: 0, type: 'bar', chart: null };
+    $('#year').textContent = new Date().getFullYear();
 
-        function handleFile(e) {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                
-                globalData = XLSX.utils.sheet_to_json(worksheet);
-                
-                document.querySelector('.search-container').style.display = 'block';
-                updateVisualization(globalData);
-            };
-            reader.readAsArrayBuffer(file);
+    /* ---------- Tema ---------- */
+    const root = document.documentElement, themeBtn = $('#themeToggle');
+    const applyTheme = (t) => {
+      root.dataset.theme = t;
+      themeBtn.innerHTML = t === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon-stars"></i>';
+      themeBtn.setAttribute('aria-label', t === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro');
+      document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#060b0b' : '#f6fbfa';
+      if (st.chart) drawChart();
+    };
+    applyTheme(store.get('sl-theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+    themeBtn.addEventListener('click', () => { const t = root.dataset.theme === 'dark' ? 'light' : 'dark'; applyTheme(t); store.set('sl-theme', t); });
+
+    /* ---------- Utilidades ---------- */
+    const toast = (t) => { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2400); };
+    const showError = (t) => { const m = $('#msg'); m.innerHTML = ''; const d = document.createElement('div'); d.className = 'msg'; d.innerHTML = '<i class="bi bi-exclamation-octagon-fill"></i>'; const s = document.createElement('span'); s.textContent = t; d.appendChild(s); m.appendChild(d); };
+    const nf = new Intl.NumberFormat('es', { maximumFractionDigits: 2 });
+    const compact = new Intl.NumberFormat('es', { notation: 'compact', maximumFractionDigits: 1 });
+    const fmtBytes = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+    const isNum = (v) => typeof v === 'number' && isFinite(v);
+    const cellText = (v) => v == null ? '' : v instanceof Date ? v.toLocaleDateString('es') : isNum(v) ? nf.format(v) : String(v);
+
+    /* ---------- Carga ---------- */
+    const drop = $('#drop'), input = $('#fileInput');
+    $('#pickBtn').addEventListener('click', (e) => { e.stopPropagation(); input.click(); });
+    drop.addEventListener('click', () => input.click());
+    drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    input.addEventListener('change', () => input.files[0] && readFile(input.files[0]));
+    ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+    function readFile(file) {
+      $('#msg').innerHTML = '';
+      if (!/\.(xlsx|xlsm|xls|csv|ods)$/i.test(file.name)) { showError('Ese archivo no es una hoja de cálculo. Usa .xlsx, .xls, .csv u .ods.'); return; }
+      const r = new FileReader();
+      r.onload = (e) => {
+        try { loadWorkbook(XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true }), file.name, file.size); }
+        catch (err) { console.error(err); showError('No pudimos leer el archivo. Puede estar dañado o protegido con contraseña.'); }
+      };
+      r.onerror = () => showError('No pudimos abrir el archivo.');
+      r.readAsArrayBuffer(file);
+    }
+
+    function loadWorkbook(wb, name, size) {
+      st.wb = wb; st.name = name; st.size = size;
+      $('#fileName').textContent = name;
+      $('#fileMeta').textContent = `${fmtBytes(size)} · ${wb.SheetNames.length} ${wb.SheetNames.length === 1 ? 'hoja' : 'hojas'}`;
+      const tabs = $('#sheetTabs'); tabs.innerHTML = '';
+      wb.SheetNames.forEach((n) => {
+        const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'tab');
+        b.innerHTML = '<i class="bi bi-grid-3x3"></i>'; b.append(n);
+        b.addEventListener('click', () => selectSheet(n)); tabs.appendChild(b);
+      });
+      tabs.style.display = wb.SheetNames.length > 1 ? 'flex' : 'none';
+      $('#workspace').classList.add('on');
+      selectSheet(wb.SheetNames[0]);
+      setTimeout(() => $('#workspace').scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    }
+
+    function selectSheet(name) {
+      st.sheet = name;
+      [...$('#sheetTabs').children].forEach((b) => { const on = b.textContent === name; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+      const aoa = XLSX.utils.sheet_to_json(st.wb.Sheets[name], { header: 1, defval: null, blankrows: false });
+      const width = aoa.reduce((m, r) => Math.max(m, r.length), 0);
+      const head = (aoa[0] || []).slice(0, width);
+      const seen = {};
+      st.cols = Array.from({ length: width }, (_, i) => {
+        let h = head[i] == null || head[i] === '' ? `Columna ${XLSX.utils.encode_col(i)}` : cellText(head[i]);
+        if (seen[h]) h = `${h} (${++seen[h]})`; else seen[h] = 1;
+        return h;
+      });
+      st.rows = aoa.slice(1).map((r) => Array.from({ length: width }, (_, i) => r[i] ?? null));
+      st.numCols = st.cols.map((_, i) => i).filter((i) => {
+        const vals = st.rows.map((r) => r[i]).filter((v) => v != null && v !== '');
+        return vals.length > 0 && vals.filter(isNum).length / vals.length >= .8;
+      });
+      st.q = ''; $('#search').value = ''; st.sortCol = null; st.page = 0;
+      setupChartControls(); applyView(); stats();
+    }
+
+    /* ---------- Métricas ---------- */
+    function stats() {
+      $('#stRows').textContent = nf.format(st.rows.length);
+      $('#stCols').textContent = st.cols.length;
+      $('#stNum').textContent = st.numCols.length;
+      if (st.numCols.length) {
+        const c = st.numCols[0];
+        const sum = st.rows.reduce((a, r) => a + (isNum(r[c]) ? r[c] : 0), 0);
+        $('#stSumLabel').textContent = `Suma · ${st.cols[c]}`;
+        $('#stSum').textContent = Math.abs(sum) >= 1e5 ? compact.format(sum) : nf.format(sum);
+      } else { $('#stSumLabel').textContent = 'Suma'; $('#stSum').textContent = '—'; }
+    }
+
+    /* ---------- Tabla ---------- */
+    function applyView() {
+      const q = st.q.toLowerCase();
+      st.view = q ? st.rows.filter((r) => r.some((v) => cellText(v).toLowerCase().includes(q))) : st.rows.slice();
+      if (st.sortCol != null) {
+        const c = st.sortCol, d = st.sortDir;
+        st.view.sort((a, b) => {
+          const x = a[c], y = b[c];
+          if (x == null) return 1; if (y == null) return -1;
+          if (isNum(x) && isNum(y)) return (x - y) * d;
+          return cellText(x).localeCompare(cellText(y), 'es', { numeric: true }) * d;
+        });
+      }
+      st.page = Math.min(st.page, Math.max(0, Math.ceil(st.view.length / PAGE) - 1));
+      renderTable(); drawChart();
+    }
+
+    function hl(td, text) {
+      const q = st.q;
+      if (!q) { td.textContent = text; return; }
+      const i = text.toLowerCase().indexOf(q.toLowerCase());
+      if (i < 0) { td.textContent = text; return; }
+      const m = document.createElement('mark'); m.textContent = text.slice(i, i + q.length);
+      td.append(text.slice(0, i), m, text.slice(i + q.length));
+    }
+
+    function renderTable() {
+      const t = $('#grid'); t.innerHTML = '';
+      const thead = t.createTHead(), hr = thead.insertRow();
+      const rn = document.createElement('th'); rn.className = 'rn'; rn.textContent = '#'; hr.appendChild(rn);
+      st.cols.forEach((c, i) => {
+        const th = document.createElement('th'); th.scope = 'col';
+        if (st.numCols.includes(i)) th.classList.add('num');
+        if (st.sortCol === i) th.classList.add('sorted');
+        th.textContent = c;
+        const so = document.createElement('i'); so.className = 'bi so ' + (st.sortCol === i ? (st.sortDir > 0 ? 'bi-sort-up' : 'bi-sort-down') : 'bi-arrow-down-up');
+        th.appendChild(so);
+        th.addEventListener('click', () => { if (st.sortCol === i) st.sortDir *= -1; else { st.sortCol = i; st.sortDir = 1; } applyView(); });
+        hr.appendChild(th);
+      });
+      const tb = t.createTBody();
+      const start = st.page * PAGE, slice = st.view.slice(start, start + PAGE);
+      const frag = document.createDocumentFragment();
+      slice.forEach((r, k) => {
+        const tr = document.createElement('tr');
+        const n = document.createElement('td'); n.className = 'rn'; n.textContent = start + k + 1; tr.appendChild(n);
+        r.forEach((v, i) => {
+          const td = document.createElement('td');
+          if (v == null || v === '') { td.className = 'empty'; td.textContent = '—'; }
+          else { if (isNum(v)) td.className = 'num'; const s = cellText(v); td.title = s; hl(td, s); }
+          tr.appendChild(td);
+        });
+        frag.appendChild(tr);
+      });
+      tb.appendChild(frag);
+      if (!slice.length) { const tr = tb.insertRow(), td = tr.insertCell(); td.colSpan = st.cols.length + 1; td.className = 'no-results'; td.textContent = st.q ? `Sin resultados para «${st.q}».` : 'Esta hoja está vacía.'; }
+      const pages = Math.max(1, Math.ceil(st.view.length / PAGE));
+      $('#tblInfo').textContent = st.q ? `${nf.format(st.view.length)} de ${nf.format(st.rows.length)} filas coinciden` : `${nf.format(st.rows.length)} filas`;
+      $('#pageInfo').textContent = `${st.page + 1} / ${pages}`;
+      $('#prev').disabled = st.page === 0; $('#next').disabled = st.page >= pages - 1;
+    }
+    $('#prev').addEventListener('click', () => { st.page--; renderTable(); });
+    $('#next').addEventListener('click', () => { st.page++; renderTable(); });
+    let sT; $('#search').addEventListener('input', (e) => { clearTimeout(sT); sT = setTimeout(() => { st.q = e.target.value.trim(); st.page = 0; applyView(); }, 140); });
+
+    /* ---------- Gráfico ---------- */
+    function setupChartControls() {
+      const xs = $('#xCol'), ys = $('#yCol'); xs.innerHTML = ''; ys.innerHTML = '';
+      st.cols.forEach((c, i) => xs.add(new Option(c, i)));
+      st.numCols.forEach((i) => ys.add(new Option(st.cols[i], i)));
+      const firstText = st.cols.findIndex((_, i) => !st.numCols.includes(i));
+      xs.value = firstText >= 0 ? firstText : 0;
+      if (st.numCols.length) ys.value = st.numCols.find((i) => i !== +xs.value) ?? st.numCols[0];
+    }
+    $('#xCol').addEventListener('change', drawChart);
+    $('#yCol').addEventListener('change', drawChart);
+    document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+      document.querySelectorAll('.seg button').forEach((x) => x.classList.toggle('active', x === b));
+      st.type = b.dataset.type; drawChart();
+    }));
+
+    function drawChart() {
+      const empty = $('#chartEmpty'), canvas = $('#chart');
+      if (st.chart) { st.chart.destroy(); st.chart = null; }
+      if (!st.numCols.length || !st.view.length) { empty.classList.add('on'); return; }
+      empty.classList.remove('on');
+      const x = +$('#xCol').value, y = +$('#yCol').value;
+      const maxPts = st.type === 'doughnut' ? 12 : 60;
+      let pts = st.view.filter((r) => isNum(r[y])).map((r) => [cellText(r[x]) || '—', r[y]]);
+      if (st.type === 'doughnut' && pts.length > maxPts) {
+        pts = pts.slice().sort((a, b) => b[1] - a[1]);
+        const rest = pts.slice(maxPts - 1).reduce((a, p) => a + p[1], 0);
+        pts = pts.slice(0, maxPts - 1).concat([['Otros', rest]]);
+      } else pts = pts.slice(0, maxPts);
+      const css = getComputedStyle(root), text = css.getPropertyValue('--muted').trim(), line = css.getPropertyValue('--line').trim();
+      const ctx = canvas.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 340);
+      g.addColorStop(0, 'rgba(16,185,129,.95)'); g.addColorStop(1, 'rgba(6,182,212,.35)');
+      const ga = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 340);
+      ga.addColorStop(0, 'rgba(16,185,129,.35)'); ga.addColorStop(1, 'rgba(16,185,129,0)');
+      const palette = ['#10b981', '#06b6d4', '#8b5cf6', '#a3e635', '#14b8a6', '#3b82f6', '#22d3ee', '#c084fc', '#34d399', '#0ea5e9', '#a78bfa', '#94a3b8'];
+      const ds = st.type === 'doughnut'
+        ? { data: pts.map((p) => p[1]), backgroundColor: palette, borderColor: css.getPropertyValue('--bg').trim(), borderWidth: 3, hoverOffset: 10 }
+        : st.type === 'line'
+          ? { data: pts.map((p) => p[1]), borderColor: '#10b981', backgroundColor: ga, fill: true, tension: .38, borderWidth: 2.5, pointRadius: pts.length > 30 ? 0 : 3, pointBackgroundColor: '#06b6d4' }
+          : { data: pts.map((p) => p[1]), backgroundColor: g, borderRadius: 8, borderSkipped: false, maxBarThickness: 44 };
+      st.chart = new Chart(canvas, {
+        type: st.type,
+        data: { labels: pts.map((p) => p[0]), datasets: [{ label: st.cols[y], ...ds }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 900, easing: 'easeOutQuart' },
+          plugins: {
+            legend: { display: st.type === 'doughnut', position: innerWidth < 576 ? 'bottom' : 'right', labels: { color: text, usePointStyle: true, boxWidth: 8, font: { family: 'Inter' } } },
+            tooltip: { backgroundColor: 'rgba(6,11,11,.92)', padding: 12, cornerRadius: 10, titleFont: { family: 'Sora', weight: '600' }, bodyFont: { family: 'Inter' }, callbacks: { label: (c) => ` ${st.cols[y]}: ${nf.format(c.parsed.y ?? c.parsed)}` } }
+          },
+          cutout: '62%',
+          scales: st.type === 'doughnut' ? {} : {
+            x: { ticks: { color: text, maxRotation: 0, autoSkip: true, font: { family: 'Inter' } }, grid: { display: false }, border: { color: line } },
+            y: { beginAtZero: true, ticks: { color: text, font: { family: 'JetBrains Mono', size: 11 }, callback: (v) => compact.format(v) }, grid: { color: line }, border: { display: false } }
+          }
         }
+      });
+    }
 
-        function handleSearch() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const filteredData = globalData.filter(row => 
-                Object.values(row).some(value => 
-                    value.toString().toLowerCase().includes(searchTerm)
-                )
-            );
-            updateVisualization(filteredData);
-        }
+    /* ---------- Acciones ---------- */
+    $('#exportBtn').addEventListener('click', () => {
+      const ws = XLSX.utils.aoa_to_sheet([st.cols, ...st.view]);
+      const blob = new Blob(['﻿' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `${st.name.replace(/\.[^.]+$/, '')}-${st.sheet}${st.q ? '-filtrado' : ''}.csv`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast(`Exportadas ${nf.format(st.view.length)} filas`);
+    });
+    $('#newBtn').addEventListener('click', () => { input.value = ''; input.click(); });
+    $('#clearBtn').addEventListener('click', () => {
+      if (st.chart) { st.chart.destroy(); st.chart = null; }
+      Object.assign(st, { wb: null, rows: [], cols: [], view: [] });
+      input.value = ''; $('#workspace').classList.remove('on');
+      window.scrollTo({ top: 0, behavior: 'smooth' }); toast('Datos eliminados');
+    });
 
-        function clearSearch() {
-            document.getElementById('searchInput').value = '';
-            updateVisualization(globalData);
-        }
+    /* ---------- Datos de ejemplo ---------- */
+    $('#sampleBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const sales = [['Mes', 'Ventas', 'Gastos', 'Clientes', 'Región']].concat(months.map((m, i) => {
+        const v = Math.round(42000 + i * 5200 + Math.sin(i * 1.3) * 9000);
+        return [m, v, Math.round(v * (.52 + Math.cos(i) * .06)), 180 + i * 23 + (i % 3) * 17, ['Norte', 'Centro', 'Sur'][i % 3]];
+      }));
+      const products = [['Producto', 'Categoría', 'Unidades', 'Precio'], ['Laptop Pro 14', 'Cómputo', 128, 1249], ['Monitor 27"', 'Cómputo', 214, 329], ['Teclado mecánico', 'Accesorios', 512, 89], ['Mouse inalámbrico', 'Accesorios', 740, 39], ['Audífonos ANC', 'Audio', 306, 199], ['Parlante BT', 'Audio', 188, 79], ['Webcam 4K', 'Accesorios', 142, 129], ['Dock USB-C', 'Accesorios', 96, 159]];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sales), 'Ventas 2026');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(products), 'Productos');
+      $('#msg').innerHTML = '';
+      loadWorkbook(wb, 'ejemplo-ventas.xlsx', 18432);
+      toast('Cargamos un libro de ejemplo');
+    });
 
-        function clearData() {
-            globalData = [];
-            document.getElementById('fileInput').value = '';
-            document.getElementById('searchInput').value = '';
-            document.querySelector('.search-container').style.display = 'none';
-            document.getElementById('output').innerHTML = '';
-            if (window.myChart instanceof Chart) {
-                window.myChart.destroy();
-            }
-        }
-
-        function updateVisualization(data) {
-            const table = XLSX.utils.sheet_to_html(XLSX.utils.json_to_sheet(data));
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = `<div class="table-container">${table}</div>`;
-            createBarChart(data);
-        }
-
-        function createBarChart(data) {
-            const labels = data.map(row => Object.values(row)[0]);
-            const values = data.map(row => Object.values(row)[1]);
-
-            const ctx = document.getElementById('myChart').getContext('2d');
-            
-            if (window.myChart instanceof Chart) {
-                window.myChart.destroy();
-            }
-            
-            window.myChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Value',
-                        data: values,
-                        backgroundColor: 'rgba(52, 152, 219, 0.6)',
-                        borderColor: 'rgba(52, 152, 219, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-    </script>
+    /* ---------- Reveal ---------- */
+    const io = new IntersectionObserver((es) => es.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: .12 });
+    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  })();
+  </script>
 </body>
 </html>
